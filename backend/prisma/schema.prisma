@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // 或者您使用的資料庫
+  url      = env("DATABASE_URL")
+}
+
+model Meal {
+  id              String         @id @default(uuid())
+  product_id      String         @unique // 產品編號
+  name            String         @unique // 餐點名稱
+  category        String         // 菜單大類
+  classification  String         // 餐點次分類
+  meal_type       String?        // 餐點類型 (麵/飯/湯等)
+  is_active       Boolean        @default(true) // 啟用狀態
+
+  recipesAsParent RecipeItem[] @relation("MealToRecipeItem") // 餐點作為父級的配方項目
+  salesSummaries  DailySalesSummary[] @relation("MealDailySales") // 新增：餐點關聯的銷售匯總記錄
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model HalfProduct {
+  id                 String         @id @default(uuid())
+  product_id         String         @unique // 產品編號
+  name               String         @unique // 半成品名稱
+  short_name         String?        // 新增：半成品簡稱 (從CSV的'半成品簡稱')
+  supplier           String?        // 新增：供貨商 (從CSV的'供貨商')
+  categories         String[]       @default([]) // 半成品類別 (可複選) (從CSV的'分類')
+  packaging_unit     String         // 包裝單位 (e.g., kg, 包, 箱) (從CSV的'包裝單位')
+  capacity_value     Decimal        @default(0.0) @db.Decimal(10, 3) // 每包裝單位實際的容量值 (e.g., 1 for 1kg/包, 20 for 20包/箱) (從CSV的'包裝數量')
+  capacity_unit      String         // 容量單位 (e.g., kg, 包) - 這個是半成品本身計算用單位 (從CSV的'容量單位')
+  is_active          Boolean        @default(true) // 啟用狀態 (從CSV的'啟用狀態 (true/false)')
+  is_virtual         Boolean        @default(false) // 新增：虛擬半成品，管控是否須包含配方表 (從CSV的'虛擬半成品')
+
+  recipesAsParent    RecipeItem[] @relation("HalfProductToRecipeItem")
+  recipesAsComponent RecipeItem[] @relation("HalfProductComponent")
+  salesSummaries     DailySalesSummary[] @relation("HalfProductDailySales") // 與 DailySalesSummary 的關聯
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
+
+model RawMaterial {
+  id                 String         @id @default(uuid())
+  product_id         String         @unique
+  name               String         @unique
+  unit               String         // 原物料單位 (e.g., 克, 毫升, 個, 包)
+  is_active          Boolean        @default(true)
+
+  recipesAsComponent RecipeItem[] @relation("ComponentToRawMaterial")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
+
+enum ComponentType {
+  RAW_MATERIAL
+  HALF_PRODUCT
+}
+
+model RecipeItem {
+  id                      String        @id @default(uuid())
+  mealId                  String?
+  meal                    Meal?         @relation("MealToRecipeItem", fields: [mealId], references: [id], onDelete: Cascade)
+
+  halfProductId           String? // 指向父級半成品
+  halfProductParent       HalfProduct?  @relation("HalfProductToRecipeItem", fields: [halfProductId], references: [id], onDelete: Cascade)
+
+  component_type          ComponentType // 這是原物料還是半成品
+  raw_material_id         String?
+  raw_material            RawMaterial?  @relation("ComponentToRawMaterial", fields: [raw_material_id], references: [id], onDelete: Restrict)
+
+  half_product_component_id String? // 指向作為組件的半成品
+  halfProductComponent    HalfProduct?  @relation("HalfProductComponent", fields: [half_product_component_id], references: [id], onDelete: Restrict)
+
+  quantity                Decimal       @db.Decimal(10, 3) // 這個組件的數量
+  unit                    String        // 這個組件的單位 (通常是 raw_material 或 halfProductComponent 的單位)
+
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+
+  @@unique([mealId, raw_material_id, half_product_component_id], name: "UniqueMealComponent")
+  @@unique([halfProductId, raw_material_id, half_product_component_id], name: "UniqueHalfProductComponent")
+}
+
+
+model UnitConversion {
+  id          String   @id @default(uuid())
+  from_unit   String
+  to_unit     String
+  rate        Decimal  @db.Decimal(10, 5) // 轉換率 (e.g., 1000 for g to kg)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([from_unit, to_unit])
+}
+
+// 新增：營業匯總表模型
+model DailySalesSummary {
+  id            String      @id @default(uuid())
+  saleDate      DateTime    @map("sale_date") @db.Date // 銷售日期，只存日期部分
+  mealId        String?     // 如果銷售的是餐點
+  meal          Meal?       @relation("MealDailySales", fields: [mealId], references: [id]) // 添加 name="MealDailySales"
+  halfProductId String?     // 如果銷售的是半成品 (直接售賣的半成品)
+  halfProduct   HalfProduct? @relation("HalfProductDailySales", fields: [halfProductId], references: [id]) // 添加 name="HalfProductDailySales"
+  quantitySold  Decimal     @map("quantity_sold") @db.Decimal(10, 3) // 銷售數量
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([saleDate])
+  @@index([mealId])
+  @@index([halfProductId])
+}
