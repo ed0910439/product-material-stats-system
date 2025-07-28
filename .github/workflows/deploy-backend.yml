@@ -4,7 +4,7 @@ name: Deploy Backend to Heroku
 on:
   push:
     branches:
-      - mmaster # 監聽 main 分支的推送
+      - master # 監聽 main 分支的推送
     paths:
       - '*' # 只在 backend 資料夾有變更時觸發
 
