@@ -1,0 +1,26 @@
+# .github/workflows/deploy-backend.yml
+name: Deploy Backend to Heroku
+
+on:
+  push:
+    branches:
+      - main  # 監聽 main 分支的推送
+    paths:
+      - 'backend/**' # 只在 backend 資料夾有變更時觸發
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Heroku
+        uses: akhileshns/heroku-deploy@v3.12.12 # 使用 Heroku Deploy Action
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }} # 您的 Heroku API 金鑰
+          heroku_app_name: "product-material-stats-system"   # 您的 Heroku 應用程式名稱
+          heroku_email: "ed0910439@outlook.com" # 您的 Heroku 帳號 email
+          # --- 關鍵選項 ---
+          appdir: "backend" # 指定您的 Heroku 應用程式的根目錄是 'backend'
+          # --- 關鍵選項 ---
