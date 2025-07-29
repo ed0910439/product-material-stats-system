@@ -7,7 +7,7 @@ on:
       - master # 監聽 main 分支的推送
     paths:
       - '*' # 只在 backend 資料夾有變更時觸發
-
+          
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,12 +15,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to Heroku
-        uses: akhileshns/heroku-deploy@v3.12.12 # 使用 Heroku Deploy Action
+      - name: Heroku Build
+  # You may pin to the exact commit or the version.
+  # uses: behe/heroku-build@e062ad4e4170200099c6e739c88f74dfe8ea6500
+        uses: behe/heroku-build@v1.2
         with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }} # 您的 Heroku API 金鑰
-          heroku_app_name: "product-material-stats-system"   # 您的 Heroku 應用程式名稱
-          heroku_email: "ed0910439@outlook.com" # 您的 Heroku 帳號 email
-          # --- 關鍵選項 ---
-          appdir: "backend" # 指定您的 Heroku 應用程式的根目錄是 'backend'
-          branch: "master" # 指定要部署的分支 
+    # Name of Heroku application
+          app-name: "product-material-stats-system"
+    # API key with the deploy role
+          api-key: ${{ secrets.HEROKU_API_KEY }}
+    # Directory to upload
+          path: "backend"
